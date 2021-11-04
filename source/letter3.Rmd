@@ -1,0 +1,129 @@
+---
+author: "`r params$school`"
+return-address: "`r params$full_address`"
+
+params:  
+  first_name: "Jesus" 
+  last_name: "Rodriguez"
+  full_name: "Jesus Rodriguez"
+  principal_name: "Timothy Dobbins"
+  school: "Cajon Park"
+  full_address: "10300 Magnolia Avenue Santee CA 92071-1704"
+  pronoun: his
+  day_abs: 5
+  times: 3
+
+subject: ABSENCES MATTER AND YOU CAN HELP
+opening: Dear Parent/Guardian of `r params$full_name`, 
+closing: Best regards,
+signature: "`r params$principal_name`, Principal"
+
+output: komaletter::komaletter
+---
+
+```{r libraries, message=FALSE, warning=FALSE, include=FALSE}
+library(tidyverse)
+library(here)
+library(ggplot2)
+library(lubridate)
+
+#https://github.com/rnuske/komaletter/blob/master/vignettes/parameterized_letter.Rmd
+```
+
+```{r data, echo=FALSE}
+personalized_info <-  readRDS(here("data", "processed", "results_factor_nov_up.rds")) %>%
+  filter(date == as.Date("2021-11-01"))
+
+principal <- readRDS(here("output", "results", "principal.rds"))
+```
+
+```{r transform-tidy-data, echo=FALSE}
+# select columns for letter; add principals
+personalized_info_select <- personalized_info %>%
+  select(first_name, last_name, gender, school, exp_att_day, day_abs, pct_abs, date)
+
+# calculate median for schools  
+personalized_info_median <- personalized_info %>%
+  filter(!is.na(day_abs)) %>%
+           group_by(school) %>%
+           summarize(median_days = median(day_abs, na.rm = FALSE)) %>%
+           ungroup()
+
+# merge median back into 1st dataset
+personalized_info_merge <- personalized_info %>%
+  left_join(personalized_info_median, median_days, by = "school")
+
+# mutate merged dataset
+personalized_info_mutate <- personalized_info_merge %>%
+  mutate(times = (day_abs - median_days)) %>%
+  mutate(pronoun = ifelse(gender == "M", "his", "her")) %>%
+  filter(times > 0)
+
+# mutate join column because something funky is going on
+personalized_info_mutate_school <- personalized_info_mutate %>%
+  mutate(school_2 = substr(school, 1, 5))
+  
+principal_school <- principal %>%
+  mutate(school = ifelse(school == "Howard Pence Elementary", "Pence Elementary", principal$school),
+         school_2 = substr(school, 1, 5))
+
+# join tables
+personalized_info_mutate_2 <- personalized_info_mutate_school %>%
+  fuzzyjoin::fuzzy_join(principal_school, match_fun = str_detect, by = "school_2", mode = "left") %>%
+  select(last_name, first_name, school = school.x, median_days, times, day_abs, pronoun,
+         mail_street, mail_city, mail_state, mail_zip, phone, adm_f_name, adm_l_name,
+         adm_email)
+
+# check matches
+#personalized_info_mutate_school %>%
+  #fuzzyjoin::fuzzy_join(principal_school, match_fun = str_detect, by = "school_2", mode = "anti") %>%
+  #count(school)
+```
+
+
+```{r letter-vectors, echo=FALSE}
+# need to change this # params$first_name
+
+personalized_info_mutate_3 <- personalized_info_mutate_2 %>%
+  unite("full_name", c("first_name", "last_name"), sep = " ", remove = F) %>%
+  unite("full_address", c("mail_street":"mail_zip"), sep = " ", 
+                 remove = F) %>%
+  unite("principal_name", c("adm_f_name":"adm_l_name"),
+                   sep = " ", remove = T) %>%
+  mutate(full_name = as.factor(full_name))
+rm(list = c("personalized_info", "personalized_info_median",
+            "personalized_info_merge", "personalized_info_mutate", "personalized_info_mutate_2",
+            "personalized_info_select"))
+
+saveRDS(personalized_info_mutate_3, file = here("output", "results", "nudge.rds"))
+```
+
+`r params$first_name` has missed more school than `r params$pronoun` classmates.* 
+
+`r params$first_name` has already missed `r params$day_abs` days this school year. 
+
+Students fall behind when they miss school – whether students are absent for excused or unexcused reasons. 
+
+You can have a big effect on `r params$first_name`’s absences going forward – and we appreciate your help.
+
+```{r abs-plot, echo=FALSE, message=FALSE, warning=FALSE, fig.width=5, fig.height=2}
+abs_plot <- personalized_info_mutate_3 %>%
+  filter(full_name == params$full_name) %>%
+  reshape2::melt(.) %>%
+  filter(variable %in% c("day_abs", "median_days"))
+
+ggplot(data = abs_plot,
+       mapping = aes(x = variable, y = value, fill = variable)) +
+  geom_col(position = "dodge") +
+  coord_flip() +
+  scale_x_discrete(label = c("Typical Student", params$first_name)) +
+  scale_y_continuous(breaks = scales::pretty_breaks()) +
+  scale_fill_manual(values=c("#404788FF", "#FDE725FF")) +
+  labs(y = "Total Missed Days of School", 
+       x = "") +
+  theme_classic() +
+  theme(legend.position="none") + theme(axis.ticks = element_line(size = 1)) +labs(x = NULL)
+```
+
+
+*`r params$first_name` has missed `r params$times` more school days than `r params$pronoun` classmates this school year.
