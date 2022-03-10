@@ -1,22 +1,24 @@
 ---
 author: "`r params$school`"
 return-address: "`r params$full_address`"
+date: 3/1/2022
 
 params:  
   first_name: "Jesus" 
   last_name: "Rodriguez"
   full_name: "Jesus Rodriguez"
   principal_name: "Timothy Dobbins"
-  school: "Cajon Park"
+  title: "Principal"
+  school: "Monarch School"
   full_address: "10300 Magnolia Avenue Santee CA 92071-1704"
   pronoun: his
-  day_abs: 5
-  times: 3
+  day_abs: 15
+  times: 7
 
 subject: ABSENCES MATTER AND YOU CAN HELP
 opening: Dear Parent/Guardian of `r params$full_name`, 
 closing: Best regards,
-signature: "`r params$principal_name`, Principal"
+signature: "`r params$principal_name`, `r params$title`"
 
 output: komaletter::komaletter
 ---
@@ -31,16 +33,16 @@ library(lubridate)
 ```
 
 ```{r data, echo=FALSE}
-personalized_info <-  readRDS(here("data", "processed", "results_factor_nov_up.rds")) %>%
-  filter(date == as.Date("2021-11-01"))
+personalized_info <-  readRDS(here("../ican_main/data/cleaned_data/results_factor_mar.rds")) %>%
+  filter(date == as.Date("2022-03-01"))
 
-principal <- readRDS(here("output", "results", "principal.rds"))
+principal <- readRDS(here("output", "results", "principal2.rds"))
 ```
 
 ```{r transform-tidy-data, echo=FALSE}
 # select columns for letter; add principals
 personalized_info_select <- personalized_info %>%
-  select(first_name, last_name, gender, school, exp_att_day, day_abs, pct_abs, date)
+  select(first_name, last_name, grade, gender, school, exp_att_day, day_abs, pct_abs, date)
 
 # calculate median for schools  
 personalized_info_median <- personalized_info %>%
@@ -65,14 +67,16 @@ personalized_info_mutate_school <- personalized_info_mutate %>%
   
 principal_school <- principal %>%
   mutate(school = ifelse(school == "Howard Pence Elementary", "Pence Elementary", principal$school),
-         school_2 = substr(school, 1, 5))
+         school_2 = substr(school, 1, 5)) %>%
+  select(school_2, mail_street, mail_city, mail_state, mail_zip, phone, adm_f_name, adm_l_name,
+         adm_email, title, spanish_title, gender_for_spanish_title)
 
 # join tables
 personalized_info_mutate_2 <- personalized_info_mutate_school %>%
   fuzzyjoin::fuzzy_join(principal_school, match_fun = str_detect, by = "school_2", mode = "left") %>%
-  select(last_name, first_name, school = school.x, median_days, times, day_abs, pronoun,
+  select(last_name, first_name, school, grade, median_days, times, day_abs, pronoun,
          mail_street, mail_city, mail_state, mail_zip, phone, adm_f_name, adm_l_name,
-         adm_email)
+         adm_email, title, spanish_title, gender_for_spanish_title)
 
 # check matches
 #personalized_info_mutate_school %>%

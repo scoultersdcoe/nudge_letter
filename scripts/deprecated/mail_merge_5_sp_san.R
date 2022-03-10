@@ -5,9 +5,9 @@ library(here)
 library(tidyverse)
 
 # data
-nudge <- readRDS(file = here("output", "results", "nudge.rds")) %>%
+nudge <- readRDS(file = here("output", "results", "nudge_san.rds")) %>%
   mutate(full_name = as.factor(full_name)) %>%
-  filter(school == "Central Elementary",
+  filter(school == "Vista Del Mar",
          times >= 3 & times <= 17)
 
 nudge$first_name <- gsub("(.*)\\s+[A-Z]\\.?$", "\\1", nudge$first_name)
@@ -26,7 +26,7 @@ recipients <- data.frame(first_name = nudge$first_name,
 
 # loop
 for (i in 1:nrow(recipients)){
-  rmarkdown::render("source/letter3.Rmd", 
+  rmarkdown::render("source/letter3_spanish_san.Rmd", 
                     params = list(
                       first_name = recipients[i, "first_name"], 
                       last_name = recipients[i, "last_name"],
@@ -38,5 +38,5 @@ for (i in 1:nrow(recipients)){
                       day_abs = recipients[i, "day_abs"],
                       times = recipients[i, "times"]),
                     output_file = paste("handout_", i, ".pdf", sep=''),
-                    output_dir = "output/handouts/Central")
+                    output_dir = "output/handouts/VistaDelMarSP")
 }

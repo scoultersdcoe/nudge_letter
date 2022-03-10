@@ -34,6 +34,7 @@ network_merge <- network %>%
 network_merge <- network_merge[-c(8, 9, 19, 20, 22, 23, 27, 28), ]
 
 saveRDS(network_merge, file = here("output", "results", "principal.rds"))
+write.csv(network_merge, file = here("output", "results", "principal.csv"))
 
 
   

@@ -7,7 +7,7 @@ library(tidyverse)
 # data
 nudge <- readRDS(file = here("output", "results", "nudge.rds")) %>%
   mutate(full_name = as.factor(full_name)) %>%
-  filter(school == "Ocean View Hills Elementary",
+  filter(school == "Central Elementary",
          times >= 3 & times <= 17)
 
 nudge$first_name <- gsub("(.*)\\s+[A-Z]\\.?$", "\\1", nudge$first_name)
@@ -38,5 +38,5 @@ for (i in 1:nrow(recipients)){
                       day_abs = recipients[i, "day_abs"],
                       times = recipients[i, "times"]),
                     output_file = paste("handout_", i, ".pdf", sep=''),
-                    output_dir = "output/handouts/OceanViewSP")
+                    output_dir = "output/handouts/CentralSP")
 }

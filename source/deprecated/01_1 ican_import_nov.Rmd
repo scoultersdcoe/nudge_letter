@@ -1,0 +1,40 @@
+---
+title: "ICAN Data November"
+author: "Shannon Coulter"
+date: "Last run: `r format(Sys.time(), '%F')`"
+output: html_document
+---
+# Load libraries
+```{r load-library, message = FALSE, warning = FALSE}
+library(RCurl)
+library(tidyverse)
+library(purrr)
+library(here)
+library(janitor)
+library(rlang)
+```
+
+# Scrape files from SFTP and bind
+```{r read-data-url}
+all_files <- read.csv(file = here("data", "raw", "sanysidro_20211101V2.csv"))
+
+header <- tribble(~ssid, ~last_name, ~first_name, ~cds, ~school, ~grade, ~gender, ~his_latino, ~race_eth, ~sed, ~el, ~sped, ~date, ~exp_att_day, ~day_abs) # create data frame header
+
+
+force_bind <- function(header, all_files) {
+    colnames(all_files) = colnames(header) # use header for colnames for all_files
+    bind_rows(header, all_files)
+}
+
+all_files_2 <- force_bind(header, all_files)
+rm(header, all_files)
+
+all_files_2 <- all_files_2 %>% 
+  filter(!str_detect(ssid, 'ssid'))
+```
+
+
+```{r}
+saveRDS(all_files_2, here("data", "processed", "sanysidro_fix.rds")) # Write file
+```
+

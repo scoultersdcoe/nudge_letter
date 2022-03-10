@@ -1,0 +1,170 @@
+---
+title: "iCAN Analysis November"
+author: "Shannon Coulter"
+date: "Last run: `r format(Sys.time(), '%F')`"
+output: 
+  html_document:
+    code_folding: hide
+    pandoc_args:
+      - "--default-image-extension=png"
+editor_options: 
+  chunk_output_type: inline
+---
+# Load libraries
+```{r load-library, message=FALSE, warning=FALSE, include=FALSE}
+library(tidyverse)
+library(viridis)
+library(here)
+library(lubridate)
+```
+
+# Load data
+```{r load-data, include=FALSE}
+results_clean <- readRDS(here("data", "processed", "sanysidro_fix.rds"))
+last_month <- readRDS(here("data", "processed", "results_factor_oct.rds"))
+```
+
+# Store codes
+```{r data-codes}
+schools <- c("Cajon Park", "Carlton Oaks", "Chet F. Harritt", "Pepper Drive" ,
+             "Rio Seco", "Sycamore Canyon", "Mt. Woodson Elementary School",
+             "La Mirada Elementary", "Ocean View Hills Elementary", 
+             "San Ysidro Middle School", "Smythe Elementary", "Sunset Elementary",
+             "Vista Del Mar", "Willow Elementary", "Monarch School", 
+             "Central Elementary", "Emory Academy", "Pence Elementary",
+             "Montgomery Middle School", "Porter Elementary")
+
+grades <- c("K", "1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th",
+            "10th", "11th", "12th")
+
+gender_id <- c("M", "F", "Other")
+
+yes_no <- c("Yes", "No")
+
+race_list <- c("American Indian or Alaska Native", "Asian", "Black or African American",
+               "Filipino", "Hispanic", "Native Hawaiian or Pacific Islander", "White", 
+               "Two or more races")
+
+abs_levels_list <- c("Severe Chronic Absenteeism", "Moderate Chronic Absenteeism",
+                     "At-Risk of Chronic Absenteeism", "Not At-Risk of Chronic Absenteeism")
+```
+
+# Mutate data
+```{r mutate-data, warning=FALSE}
+results_mutate <- results_clean %>%
+  mutate(exp_att_day = as.numeric(exp_att_day),
+         day_abs = as.numeric(day_abs),
+         grade = as.numeric(grade)) %>%
+  mutate(grade = case_when(grade %in% c(01, 1) ~ "1st",
+                           grade %in% c(02, 2) ~ "2nd",
+                           grade %in% c(03, 3) ~ "3rd",
+                           grade %in% c(04, 4) ~ "4th",
+                           grade %in% c(05, 5) ~ "5th",
+                           grade %in% c(06, 6) ~ "6th",
+                           grade %in% c(07, 7) ~ "7th",
+                           grade %in% c(08, 8) ~ "8th",
+                           grade %in% c(09, 9) ~ "9th",
+                           grade == 10 ~ "10th",
+                           grade == 11 ~ "11th",
+                           grade == 12 ~ "12th",
+                           grade %in% c(13, 0, "KN") ~ "K",
+                           grade == "TK" ~ "TK",
+                           TRUE ~ "Missing")
+  )
+  
+results_mutate_2 <- results_mutate %>%
+  mutate(race_eth = case_when(his_latino == "Yes" & 
+                                is.na(race_eth) ~ "500", 
+                              TRUE ~ .$race_eth)) %>%
+  mutate(race_eth = case_when(his_latino == "Yes" & 
+                                race_eth == "0" ~ "500", 
+                              TRUE ~ .$race_eth)) %>%
+  mutate(race_eth = case_when(race_eth == 0 ~ "Declined",
+                              race_eth == 100 ~ "American Indian or Alaska Native",
+                              race_eth %in% c(200, 201, 202, 203, 204, 206, 205, 207, 299) ~ "Asian",
+                              race_eth %in% c(300, 301, 302, 303, 304, 399) ~ "Native Hawaiian or Pacific Islander",
+                              race_eth == 400 ~ "Filipino",
+                              race_eth == 500 ~ "Hispanic",
+                              race_eth == 600 ~ "Black or African American",
+                              race_eth == 700 ~ "White",
+                              race_eth == 800 ~ "Two or more races",
+                              TRUE ~ results_clean$race_eth)) %>%
+  mutate(date = as.Date("2021-11-01")) %>%
+  mutate(pct_abs = day_abs/exp_att_day) %>%
+  mutate(abs_levels = case_when(pct_abs >= .2 ~ "Severe Chronic Absenteeism",
+                                pct_abs >= .1 & pct_abs <.2 ~ 
+                                  "Moderate Chronic Absenteeism",
+                                pct_abs >= .05 & pct_abs < .1 ~ 
+                                  "At-Risk of Chronic Absenteeism",
+                                pct_abs < .05 ~ "Not At-Risk of Chronic Absenteeism",
+                                TRUE ~ "Missing")
+  ) %>%
+  drop_na(exp_att_day)
+```
+
+```{r continue-mutate}
+results_mutate_3 <- results_mutate_2 %>%
+  mutate(gender = case_when(gender == "X" ~ "Other",
+                            TRUE ~ .$gender),
+         year = as.factor(lubridate::year(date)),
+         ssid = as.numeric(ssid),
+         cds = as.integer(cds))
+
+#results_mutate_3$school[results_mutate_3$school == "Monarch"] <- "Monarch School"
+
+```
+
+# Factorize variables
+```{r factorize2}
+results_mutate_4 <- results_mutate_3 %>%
+  # factorize variables
+  mutate(school = factor(school, levels = 
+                               schools, ordered = TRUE),
+         grade = factor(grade, levels = grades, ordered = TRUE),
+         gender = factor(gender, levels = gender_id, ordered = TRUE),
+         race_eth = factor(race_eth, levels = race_list, ordered = TRUE),
+         abs_levels = factor(abs_levels, levels = abs_levels_list, ordered = TRUE)) %>%
+         #year = factor(year, ordered = TRUE)) %>%
+  mutate_at(vars(his_latino, sed, el, sped), 
+                     list(~factor(., levels = yes_no, ordered = TRUE)))
+
+# fix ordered factor for year in last month? not sure the problem
+last_month <- last_month %>%
+  mutate(year = as.factor(lubridate::year(date)))
+         #year = factor(year, ordered = TRUE))
+```
+
+```{r mutate-check}
+#skimr::skim(results_mutate)
+
+skimr::skim(results_mutate_4)
+skimr::skim(last_month)
+
+# fix date, duplicate ssids, missing school, missing grade, missing race,
+# missing el, fix race 202, drop 7318 student name row
+```
+
+```{r merge-oct-all}
+force_bind <- function(results_mutate_4, last_month) {
+    colnames(results_mutate_4) = colnames(last_month) # use header for colnames for all_files
+    bind_rows(results_mutate_4, last_month)
+}
+
+november_files_san <- force_bind(results_mutate_4, last_month)
+#rm(results_clean, results_factor, results_mutate, results_mutate_2, results_mutate_3, last_month)
+```
+
+
+```{r bind-check}
+skimr::skim(november_files)
+table(results_clean$school %in% last_month$school)
+
+ggplot(november_files,
+    mapping = aes(x = el)) +
+  geom_bar()
+```
+
+```{r save}
+saveRDS(november_files_san, here("data", "processed", "results_factor_nov_up_san.rds"))
+
+```
